@@ -16,6 +16,7 @@ class AttrDict(dict):
     def raise_for_status(self):
         pass
 
+
 class FakeRequest(object):
     """Mock for requests.session.request.  Init it with the headers and data
     that you want to get back when calling session.request.  Keeps a history of
@@ -31,9 +32,10 @@ class FakeRequest(object):
         path = urllib.parse.urlparse(url).path
         self.history.append(AttrDict(vars()))
         try:
-            return AttrDict(headers=self.headers,
-                             text=json.dumps(self.data[path]),
-                             status_code=200)
+            return AttrDict(
+                headers=self.headers,
+                text=json.dumps(self.data[path]),
+                status_code=200)
         except KeyError:
             return AttrDict(status_code=404)
 
@@ -52,12 +54,12 @@ class TrollopTestCase(unittest.TestCase):
 class TestGetMe(TrollopTestCase):
 
     data = {'/1/members/me': {
-        "id":"4e73a7ef5571166c5f53a93f",
-        "fullName":"Brent Tubbs",
-        "username":"btubbs",
-        "gravatar":"e60b3c53235cd53f5e2b6401678c4f6a",
-        "bio":"",
-        "url":"https://trello.com/btubbs"
+        "id": "4e73a7ef5571166c5f53a93f",
+        "fullName": "Brent Tubbs",
+        "username": "btubbs",
+        "gravatar": "e60b3c53235cd53f5e2b6401678c4f6a",
+        "bio": "",
+        "url": "https://trello.com/btubbs"
     }}
 
     def test(self):
@@ -73,45 +75,62 @@ class TestGetMe(TrollopTestCase):
         assert req1.url.startswith('https://api.trello.com/1/members/me')
         assert req1.method == 'GET'
 
+
 class SublistTests(TrollopTestCase):
-    data = {'/1/members/me/boards/':
-                [{'id': 'fakeboard1', 'name': 'Fake Board 1'},
-                 {'id': 'fakeboard2', 'name': 'Fake Board 2'}],
-            '/1/boards/fakeboard1/lists/':
-                [{'id': 'fakeboard1_fakelist', 'idBoard': 'fakeboard1', 'name':
-                  'Fake List from Fake Board 1'}],
-            '/1/boards/fakeboard2/lists/':
-                [{'id': 'fakeboard2_fakelist', 'idBoard': 'fakeboard2', 'name':
-                  'Fake List from Fake Board 2'}]}
+    data = {
+        '/1/members/me/boards/': [
+            {'id': 'fakeboard1', 'name': 'Fake Board 1'},
+            {'id': 'fakeboard2', 'name': 'Fake Board 2'},
+        ],
+        '/1/boards/fakeboard1/lists/': [
+            {
+                'id': 'fakeboard1_fakelist', 'idBoard': 'fakeboard1',
+                'name': 'Fake List from Fake Board 1',
+            },
+        ],
+        '/1/boards/fakeboard2/lists/': [
+            {
+                'id': 'fakeboard2_fakelist',
+                'idBoard': 'fakeboard2', 'name':
+                'Fake List from Fake Board 2',
+            },
+        ],
+    }
 
     def test_cache_bug_fixed(self):
         # assert that fakeboard1 and fakeboard2 have distinct sublists.
         # Fixes https://bitbucket.org/btubbs/trollop/changeset/36e3c41c7016
-        assert (self.conn.me.boards[0].lists[0].name ==
-                'Fake List from Fake Board 1')
-        assert (self.conn.me.boards[1].lists[0].name ==
-                'Fake List from Fake Board 2')
+        assert (
+            self.conn.me.boards[0].lists[0].name
+            == 'Fake List from Fake Board 1')
+        assert (
+            self.conn.me.boards[1].lists[0].name
+            == 'Fake List from Fake Board 2')
+
 
 class ChecklistItemTests(TrollopTestCase):
 
-    data = { '/1/checklists/fakeCheckListId/checkItems/':
-            [
-                {   'id':   'fakeCheckItem1',
-                    'name': 'fake Check Item 1',
-                    'type': 'check',
-                    'pos':  123456 },
-                {   'id':   'fakeCheckItem2',
-                    'name': 'fake Check Item 2',
-                    'type': 'check',
-                    'pos':  123457 },
-            ]}
+    data = {
+        '/1/checklists/fakeCheckListId/checkItems/': [{
+            'id': 'fakeCheckItem1',
+            'name': 'fake Check Item 1',
+            'type': 'check',
+            'pos': 123456,
+        }, {
+            'id': 'fakeCheckItem2',
+            'name': 'fake Check Item 2',
+            'type': 'check',
+            'pos': 123457,
+        }],
+    }
 
     def test_checkItem_members(self):
         checklist = self.conn.get_checklist('fakeCheckListId')
 
         assert(checklist.checkItems[0].name == 'fake Check Item 1')
         assert(checklist.checkItems[0].type == 'check')
-        assert(checklist.checkItems[1].pos  == 123457)
+        assert(checklist.checkItems[1].pos == 123457)
+
 
 class TestLabeled(object):
     def test_Cards_are_labeled(self):

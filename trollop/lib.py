@@ -38,18 +38,19 @@ class TrelloConnection(object):
         # we're submitting a payload in the body
         namedFile = None
         if body:
-          headers = {'Content-Type': 'application/json'}
-          if method == 'POST':
-            if filename:
-              namedFile = (filename,body)
-            elif hasattr(body, 'name'):
-              namedFile = (body.name, body)
+            headers = {'Content-Type': 'application/json'}
+            if method == 'POST':
+                if filename:
+                    namedFile = (filename, body)
+                elif hasattr(body, 'name'):
+                    namedFile = (body.name, body)
         else:
-          headers = None
+            headers = None
         if namedFile:
-          response = requests.post(url, files=dict(file=namedFile))
+            response = requests.post(url, files=dict(file=namedFile))
         else:
-          response = self.session.request(method, url, data=body, headers=headers)
+            response = self.session.request(
+                method, url, data=body, headers=headers)
         response.raise_for_status()
         return response.text
 
@@ -102,7 +103,7 @@ class Closable(object):
     def close(self):
         path = self._prefix + self._id + '/closed'
         params = {'value': 'true'}
-        result = self._conn.put(path, params=params)
+        self._conn.put(path, params=params)
 
 
 class Deletable(object):
@@ -167,10 +168,12 @@ class DateField(Field):
         raw = super(DateField, self).__get__(instance, owner)
         return isodate.parse_datetime(raw)
 
+
 class IntField(Field):
     def __get__(self, instance, owner):
         raw = super(IntField, self).__get__(instance, owner)
         return int(raw)
+
 
 class BoolField(Field):
     def __get__(self, instance, owner):
@@ -222,11 +225,12 @@ class SubList(object):
         self._lists = {}
 
     def __get__(self, instance, owner):
-        if not instance._id in self._lists:
+        if instance._id not in self._lists:
             cls = get_class(self.cls)
             path = instance._prefix + instance._id + cls._prefix
             data = json.loads(instance._conn.get(path))
-            self._lists[instance._id] = [cls(instance._conn, d['id'], d) for d in data]
+            self._lists[instance._id] = [
+                cls(instance._conn, d['id'], d) for d in data]
         return self._lists[instance._id]
 
 
@@ -255,7 +259,8 @@ class LazyTrello(object):
     # The Trello API path where objects of this type may be found. eg '/cards/'
     @property
     def _prefix(self):
-        raise NotImplementedError("LazyTrello subclasses MUST define a _prefix")
+        raise NotImplementedError(
+            "LazyTrello subclasses MUST define a _prefix")
 
     def __init__(self, conn, obj_id, data=None):
         self._id = obj_id
@@ -272,7 +277,7 @@ class LazyTrello(object):
             # Something is trying to access the _data attribute.  If we haven't
             # fetched data from Trello yet, do so now.  Cache the result on the
             # object.
-            if not '_data' in self.__dict__:
+            if '_data' not in self.__dict__:
                 self._data = json.loads(self._conn.get(self._path))
 
             return self._data
@@ -389,9 +394,10 @@ class Card(LazyTrello, Closable, Deletable, Labeled):
         position is (x,y,z) where x,y is the top-left corner
         and z is the layer index (integer)
         """
-        x,y,z = position
-        params = dict(image= name,
-                    top=y, left=x, zIndex=z)
+        x, y, z = position
+        params = dict(
+            image=name,
+            top=y, left=x, zIndex=z)
         if rotate is not None:
             params['rotate'] = rotate
         path = self._path + '/stickers'
@@ -415,7 +421,6 @@ class Card(LazyTrello, Closable, Deletable, Labeled):
         pass
 
 
-
 class Checklist(LazyTrello):
 
     _prefix = '/checklists/'
@@ -431,6 +436,7 @@ class Checklist(LazyTrello):
     # TODO: Figure out why checklists have a /cards/ subpath in the docs.  How
     # could one checklist belong to multiple cards?
 
+
 class CheckItem(LazyTrello):
 
     _prefix = '/checkItems/'
@@ -438,6 +444,7 @@ class CheckItem(LazyTrello):
     name = Field()
     pos = Field()
     type = Field()
+
 
 class List(LazyTrello, Closable):
 
@@ -459,14 +466,16 @@ class List(LazyTrello, Closable):
         card = Card(self._conn, data['id'], data)
         return card
 
+
 class Label(LazyTrello):
     _prefix = "/labels"
-    
+
     board = ObjectField('idBoard', 'Board')
-    
+
     name = Field()
     color = Field()
     uses = IntField()
+
 
 class Sticker(LazyTrello):
     _prefix = '/stickers/'
@@ -484,7 +493,6 @@ class Attachment(LazyTrello):
     name = Field()
     url = Field()
     isUpload = BoolField()
-
 
 
 class Member(LazyTrello):
