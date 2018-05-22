@@ -21,7 +21,7 @@ jobs:
         all_branches: true
       user: jaraco
       password:
-        secure: ... # encrypt password with `travis encrypt`
+        secure: J7saDv6smKZopDK3tr2Rzv2EqaK04GiwneOVtzi0EW8pxqAV9VqZB5Jc+TPOtpEhbID13hYXA2QekDsyYc+Exh5b+sSS+BJDK35VIendyxC0u9UQp/jJJl4Bdm6Ef7766mBwQT0G3rcinipNQB6+PTGtQS3U++zPwv2iFUax/UaoGZs3z+QhwPVn78CrsMJ3+OIcsx4k6YaewbNnISDKKk6Hl2/ZXBlNRkx9QBPWe6FDPinLb8RgRf5uxgSZ/4o0GfQLjTDiX/gO85abIjR6PUZFzWfpBqdMIOLYgKSU2d0IKT9HzTZVYCc9hUdPgIuqqjlFcEd9PkowkYgX75is+lnLl5kM33E/R2wDqDL/cZtM0mAZwl7gvPjYm8Sj4baoUPzkMkjxzcrWDDrGiI9SEN2kMBGsXUylsu0A0dTbFTsMMRkILfT+r/fJ1QE/T82OgruAXDQTE4KcZwuJO13UefdZAp3KQES73aBTsgB19awb43lVQElCTLBJdRCRlIXJadh/ze3hqtTDShqoBMIKcoC5QGWmc8GXv6IRvZhB26blcBmncCfbRXaKTQJWjQf5oI2kEquvxRY5fsh1biLgbaV2kk0kU6T4sZ0lH667ayfwZHI/Qfb0+Yrdlt95xK6xQHQbgdz5jG0szzOlVTnX7m0Ymv2X4oMJmkHmVKRrTf0=
       distributions: dists
       skip_cleanup: true
       skip_upload_docs: true
