@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import unittest
 import json
-import urlparse
+
+from six.moves import urllib
 
 import trollop
 from trollop import TrelloConnection
@@ -27,7 +28,7 @@ class FakeRequest(object):
         self.history = []
 
     def __call__(self, method, url, *args, **kwargs):
-        path = urlparse.urlparse(url).path
+        path = urllib.parse.urlparse(url).path
         self.history.append(AttrDict(vars()))
         try:
             return AttrDict(headers=self.headers,
