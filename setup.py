@@ -33,8 +33,9 @@ params = dict(
 	),
 	python_requires='>=2.7',
 	install_requires=[
-        'requests',
-        'isodate',
+		'requests>=1.2.0',
+		'isodate>=0.5.4',
+		'six>=1.10.0',
 	],
 	extras_require={
 		'testing': [

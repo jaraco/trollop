@@ -30,7 +30,7 @@ The connection object will automatically have a Member object attached,
 representing the user whose oauth token was used to connect::
 
     In [3]: conn.me
-    Out[3]: <trollop.lib.Member object at 0x101707650>
+    Out[3]: <Member: me>
 
     In [4]: conn.me.username
     Out[4]: u'btubbs'
@@ -119,7 +119,7 @@ Trello objects have smart fields that automatically look up related objects::
     In [9]: lst = card.list
 
     In [10]: lst
-    Out[10]: <trollop.lib.List object at 0x101707890>
+    Out[10]: <List: Icebox>
 
     In [11]: lst.name
     Out[11]: u'Icebox'
@@ -149,3 +149,4 @@ Trollop is licensed under the `MIT License`_.
 .. _API key: https://trello.com/card/board/generating-your-developer-key/4ed7e27fe6abb2517a21383d/4eea75831576578f2713f460
 .. _oauth token: https://trello.com/card/board/getting-a-user-token-and-oauth-urls/4ed7e27fe6abb2517a21383d/4eea75bc1576578f2713fc5f 
 .. _MIT License: http://www.opensource.org/licenses/mit-license.php
+.. _Requests 1.0.4: http://docs.python-requests.org/en/latest/

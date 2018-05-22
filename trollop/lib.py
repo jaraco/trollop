@@ -1,6 +1,8 @@
-from urllib import urlencode
 import json
 import isodate
+
+import six
+from six.moves.urllib.parse import urlencode
 
 import requests
 
@@ -14,34 +16,41 @@ def get_class(str_or_class):
         return str_or_class
 
 
-class TrelloError(Exception):
-    pass
-
-
 class TrelloConnection(object):
 
     def __init__(self, api_key, oauth_token):
-        self.session = requests.session(
-            headers={'Accept': 'application/json',
-                     'Content-Type': 'application/json'})
+        self.session = requests.session()
+
         self.key = api_key
         self.token = oauth_token
 
-    def request(self, method, path, params=None, body=None):
+    def request(self, method, path, params=None, body=None, filename=None):
 
         if not path.startswith('/'):
             path = '/' + path
         url = 'https://api.trello.com/1' + path
 
         params = params or {}
-        params.update({'key': self.key, 'token': self.token})
+        params.update({'key': self.key, 'token': self.token, 'limit': 1000})
         url += '?' + urlencode(params)
-        response = self.session.request(method, url, data=body)
-        if response.status_code != 200:
-            # TODO: confirm that Trello never returns a 201, for example, when
-            # creating a new object. If it does, then we shouldn't restrict
-            # ourselves to a 200 here.
-            raise TrelloError(response.text)
+
+        # Trello recently got picky about headers.  Only set content type if
+        # we're submitting a payload in the body
+        namedFile = None
+        if body:
+          headers = {'Content-Type': 'application/json'}
+          if method == 'POST':
+            if filename:
+              namedFile = (filename,body)
+            elif hasattr(body, 'name'):
+              namedFile = (body.name, body)
+        else:
+          headers = None
+        if namedFile:
+          response = requests.post(url, files=dict(file=namedFile))
+        else:
+          response = self.session.request(method, url, data=body, headers=headers)
+        response.raise_for_status()
         return response.text
 
     def get(self, path, params=None):
@@ -154,10 +163,19 @@ class Field(object):
 
 
 class DateField(Field):
-
     def __get__(self, instance, owner):
         raw = super(DateField, self).__get__(instance, owner)
         return isodate.parse_datetime(raw)
+
+class IntField(Field):
+    def __get__(self, instance, owner):
+        raw = super(IntField, self).__get__(instance, owner)
+        return int(raw)
+
+class BoolField(Field):
+    def __get__(self, instance, owner):
+        raw = super(BoolField, self).__get__(instance, owner)
+        return bool(raw)
 
 
 class ObjectField(Field):
@@ -227,18 +245,17 @@ class TrelloMeta(type):
         return super(TrelloMeta, cls).__new__(cls, name, bases, dct)
 
 
+@six.add_metaclass(TrelloMeta)
 class LazyTrello(object):
     """
     Parent class for Trello objects (cards, lists, boards, members, etc).  This
     should always be subclassed, never used directly.
     """
 
-    __metaclass__ = TrelloMeta
-
     # The Trello API path where objects of this type may be found. eg '/cards/'
     @property
     def _prefix(self):
-        raise NotImplementedError, "LazyTrello subclasses MUST define a _prefix"
+        raise NotImplementedError("LazyTrello subclasses MUST define a _prefix")
 
     def __init__(self, conn, obj_id, data=None):
         self._id = obj_id
@@ -263,7 +280,30 @@ class LazyTrello(object):
             raise AttributeError("%r object has no attribute %r" %
                                  (type(self).__name__, attr))
 
-### BEGIN ACTUAL WRAPPER OBJECTS
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __unicode__(self):
+        tmpl = u'<%(cls)s: %(name_or_id)s>'
+        # If I have a name, use that
+        if 'name' in self._data:
+            return tmpl % {'cls': self.__class__.__name__,
+                           'name_or_id': self._data['name']}
+
+        return tmpl % {'cls': self.__class__.__name__,
+                       'name_or_id': self._id}
+
+    def __str__(self):
+        txt = self.__unicode__()
+        if six.PY2:
+            return self.__unicode__().encode('utf-8')
+        return txt
+
+    def __repr__(self):
+        return self.__unicode__()
+
+
+# BEGIN ACTUAL WRAPPER OBJECTS
 
 
 class Action(LazyTrello):
@@ -293,6 +333,7 @@ class Board(LazyTrello, Closable):
     checklists = SubList('Checklist')
     lists = SubList('List')
     members = SubList('Member')
+    labels = SubList('Label')
 
 
 class Card(LazyTrello, Closable, Deletable, Labeled):
@@ -305,13 +346,75 @@ class Card(LazyTrello, Closable, Deletable, Labeled):
     badges = Field()
     checkItemStates = Field()
     desc = Field()
-    labels = Field()
+    idLabels = Field()
 
     board = ObjectField('idBoard', 'Board')
     list = ObjectField('idList', 'List')
+    stickers = SubList('Sticker')
+    attachments = SubList('Attachment')
+    labels = SubList('Label')
 
-    checklists = ListField('idChecklists','Checklist')
+    checklists = ListField('idChecklists', 'Checklist')
     members = ListField('idMembers', 'Member')
+
+    def detach(self, attachment):
+        """
+        Remove attachment from card
+        """
+        assert isinstance(attachment, Attachment)
+        path = self._path + attachment._path
+        self._conn.delete(path)
+
+    def attach(self, name, file):
+        """
+        Create new attachment from the open 'file' and name it 'name'.
+        """
+        path = self._path + '/attachments'
+        return self._conn.request('POST', path, body=file, filename=name)
+
+    def set_cover(self, attachment):
+        """
+        Set attachment as card cover.
+        If attachment is None, remove it.
+        """
+        path = self._path + '/idAttachmentCover'
+        if attachment:
+            self._conn.put(path, dict(value=attachment._id))
+        else:
+            self._conn.put(path, dict(value=''))
+
+    def paste_sticker(self, name, position, rotate=None):
+        """
+        Paste a sticker to a card.
+        position is (x,y,z) where x,y is the top-left corner
+        and z is the layer index (integer)
+        """
+        x,y,z = position
+        params = dict(image= name,
+                    top=y, left=x, zIndex=z)
+        if rotate is not None:
+            params['rotate'] = rotate
+        path = self._path + '/stickers'
+        self._conn.post(path, params)
+
+    def remove_sticker(self, sticker):
+        """
+        Remove a stricker from a card
+        """
+        path = self._path + '/stickers/' + sticker._id
+        self._conn.delete(path)
+
+    def add_comment(self, text):
+        """
+        Add a comment to a card
+        """
+        path = self._path + '/actions/comments'
+        return self._conn.post(path, dict(text=text))
+
+    def remove_comment(self, idAction):
+        pass
+
+
 
 class Checklist(LazyTrello):
 
@@ -355,6 +458,33 @@ class List(LazyTrello, Closable):
         data = json.loads(self._conn.post(path, body=body))
         card = Card(self._conn, data['id'], data)
         return card
+
+class Label(LazyTrello):
+    _prefix = "/labels"
+    
+    board = ObjectField('idBoard', 'Board')
+    
+    name = Field()
+    color = Field()
+    uses = IntField()
+
+class Sticker(LazyTrello):
+    _prefix = '/stickers/'
+
+    image = Field()
+
+
+class Attachment(LazyTrello):
+    # deletable through card
+    _prefix = '/attachments/'
+
+    bytes = IntField()
+    date = DateField()
+    mimeType = Field()
+    name = Field()
+    url = Field()
+    isUpload = BoolField()
+
 
 
 class Member(LazyTrello):
